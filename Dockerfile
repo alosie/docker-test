@@ -6,15 +6,15 @@ ENV DEBIAN_FRONTEND=noninteractive
 ARG TERRAFORM_VERSION=1.5.5
 
 # Set labels.
-LABEL BaseImage="ubuntu:latest"
-LABEL TerraformVersion=${TERRAFORM_VERSION}
+LABEL com.yourcompany.BaseImage="ubuntu:latest"
+LABEL com.yourcompany.TerraformVersion=${TERRAFORM_VERSION}
 
-# Update the base packages + add a non-sudo user.
-RUN apt-get update -y && apt-get upgrade -y && useradd -m docker
-
-# Install the packages and dependencies along with jq so we can parse JSON.
-RUN apt-get install -y --no-install-recommends \
-    curl nodejs wget unzip vim git jq build-essential libssl-dev libffi-dev python3 python3-pip python3-dev awscli openssh-client
+# Install packages and cleanup.
+RUN apt-get update -y && apt-get upgrade -y && \
+    apt-get install -y --no-install-recommends \
+    curl nodejs wget unzip vim git jq build-essential libssl-dev libffi-dev python3 python3-pip python3-dev awscli openssh-client && \
+    apt-get clean && rm -rf /var/lib/apt/lists/* && \
+    useradd -m docker
 
 # Add Hashicorp Repos and install Terraform.
 RUN wget --progress=dot:giga https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip && \
@@ -22,11 +22,17 @@ RUN wget --progress=dot:giga https://releases.hashicorp.com/terraform/${TERRAFOR
     mv terraform /usr/local/bin/ && \
     rm -rf terraform_${TERRAFORM_VERSION}_linux_amd64.zip
 
+# Revert DEBIAN_FRONTEND
+ENV DEBIAN_FRONTEND=
+
 # Copy across the terraform script.
 COPY folder/ .
 
 # Make the script executable.
-RUN chmod 777 terraform-script.sh
+RUN chmod 755 terraform-script.sh
+
+# Switch to a non-root user.
+USER docker
 
 # Expose port.
 EXPOSE 8080
